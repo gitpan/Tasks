@@ -11,8 +11,8 @@
 #
 # Subject to terms of GNU General Public License (www.gnu.org)
 #
-# Last update: $Date: 2001/06/05 22:58:10 $ by $Author: sergey $
-# Revision: $Revision: 1.1 $
+# Last update: $Date: 2001/07/30 15:09:32 $ by $Author: sergey $
+# Revision: $Revision: 1.2 $
 
 # This stuff is to find our actual location...
 BEGIN {
@@ -49,7 +49,7 @@ no strict 'refs';
 
 $| = 1;
 
-my $revision = '$Revision: 1.1 $';
+my $revision = '$Revision: 1.2 $';
 $revision =~ s/[^0-9\.]//g;
 my $VERSION = $revision;
 
@@ -443,6 +443,7 @@ EOM
     my $mode = $ret->{time_options}->{mode} ?
 	$ret->{time_options}->{mode} : 'time';
     return $ret unless $task;
+    return $ret if ($task->{inactive});
     return $ret if (!$g_show_private && $task->{private});
     my $time = $tasks->get_total_time($task, $ret->{time_options});
     my $pcnt = $ret->{total} ? $time * 100 / $ret->{total} : 0;
@@ -526,6 +527,7 @@ sub create_tasks_menu {
 sub cascade_tasks_menu {
   my ($pmenu, $task, $handler) = @_;
   return undef unless (Exists($pmenu) && $task);
+  return undef if ($task->{inactive});
   my $name = $task->{name} ? $task->{name} : '';
   if (scalar(@{$task->{_tasks}})) {
     $tasks_hash->{$task->{id}}{menu} = $pmenu->Menu();
@@ -574,7 +576,8 @@ sub edit_task {
   push(@{$win->{popups}}, $popup);
 
   my %t = ();
-  map { $t{$_} = $task->{$_}; } ('name', 'id', '_text', 'priority', 'private');
+  map { $t{$_} = $task->{$_}; } ('name', 'id', '_text', 'priority',
+				 'private', 'inactive');
 
   my %edit_win = ();
 
@@ -600,6 +603,11 @@ sub edit_task {
 
   $c1 = $edit_win{fr_main}->Label(-text => 'Task is Private');
   $c2 = $edit_win{fr_main}->Checkbutton(-variable=>\$t{private});
+  $c1->grid($c2, -sticky => 'w');
+
+  $c1 = $edit_win{fr_main}->Label(-text => 'Inactivate task');
+  $c2 = $edit_win{fr_main}->Checkbutton(-variable=>\$t{inactive},
+					-text => '(almost the same as delete)');
   $c1->grid($c2, -sticky => 'w');
 
   # Statistics
@@ -710,7 +718,7 @@ sub edit_task {
 	 my $fl = ($t{name} eq $task->{name}) ? 0 : 1;
 	 $t{_text} = $edit_win{note_text}->get("0.0", 'end');
 	 map { $task->{$_} = $t{$_};
-	     } ('name', '_text', 'priority', 'private');
+	     } ('name', '_text', 'priority', 'private', 'inactive');
 	 create_tasks_menu() if $fl;
 	 $popup->destroy();
        }
@@ -744,7 +752,7 @@ sub create_list4listview {
   my $total = $tasks->get_total_time($task);
   for ($i=0; $i < scalar(@{$task->{_tasks}}); $i++) {
     $_ = line_list4listview($task->{_tasks}[$i], '', $total);
-    push(@buf, $_);
+    push(@buf, $_) if $_;
     cascade_list4listview($task->{_tasks}[$i], \@buf, ' ', $total) if $expand;
   }
   return @buf;
@@ -753,10 +761,11 @@ sub create_list4listview {
 sub cascade_list4listview {
   my ($task, $buf, $prefix, $total) = @_;
   return undef unless ($task && $buf);
+  return undef if ($task->{inactive});
   my ($i);
   for ($i=0; $i < scalar(@{$task->{_tasks}}); $i++) {
     $_ = line_list4listview($task->{_tasks}[$i], $prefix, $total);
-    push(@{$buf}, $_);
+    push(@{$buf}, $_) if $_;
     cascade_list4listview($task->{_tasks}[$i], $buf, $prefix.' ', $total);
   }
 }
@@ -764,7 +773,8 @@ sub cascade_list4listview {
 # Form line for list4listview functions
 sub line_list4listview {
   my ($task, $prefix, $total) = @_;
-  
+
+  return '' if ($task->{inactive});
   my $time = $tasks->get_total_time($task);
   my $pcnt = $total ? $time * 100 / $total : 0;
   $pcnt =~ s/\.(..).*$/\.$1/g;
@@ -776,6 +786,7 @@ sub line_list4listview {
   $_ .= " $pcnt";
   $_ .= ' 'x50;		# just to make sure
   $_ .= $task->{id};
+  return $_;
 }
 
 # Create a new task

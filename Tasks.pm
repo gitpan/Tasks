@@ -1,5 +1,20 @@
 package Tasks;
 
+#
+# Tasks - module & application for the tasks / projects and time tracking
+#
+# See POD documentation in this file for more info
+#
+# Copyright (c) 2001 Sergey Gribov <sergey@sergey.com>
+# This is free software with ABSOLUTELY NO WARRANTY.
+# You can redistribute and modify it freely, but please leave
+# this message attached to this file.
+#
+# Subject to terms of GNU General Public License (www.gnu.org)
+#
+# Last update: $Date: 2001/07/30 15:11:54 $ by $Author: sergey $
+# Revision: $Revision: 1.3 $
+
 use strict;
 no strict "refs";
 
@@ -16,7 +31,7 @@ require AutoLoader;
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 @EXPORT = qw();
-$VERSION = '1.0';
+$VERSION = '1.2';
 
 #bootstrap Tasks $VERSION;
 
@@ -215,7 +230,7 @@ sub save {
   foreach $tasklist (@{ $self->{tasklist} }) {
     $buf = form_attr_line('tasklist', $tasklist);
     print F "$buf\n";
-    print F "\n$tasklist->{_text}\n" if $tasklist->{_text};
+    print F &StrToXML("\n$tasklist->{_text}\n") if $tasklist->{_text};
     foreach (@{$tasklist->{_tasks}}) {
       save_task(\*F, $_, $ident_prefix);
     }
@@ -429,7 +444,7 @@ sub form_attr_line {
   
   my $buf = "<$label";
   map {
-    $buf .= qq( $_="$hash->{$_}")
+    $buf .= &StrToXML(qq( $_="$hash->{$_}"))
 	unless (ref($hash->{$_}) || $_ =~ /^_/); } keys %{$hash};
   return "$buf>";
 }
@@ -447,11 +462,12 @@ sub save_task {
   my ($time, $buf);
   $buf = $prefix.form_attr_line('task', $task);;
   print $fh "\n$buf\n";
-  print $fh qq($prefix$ident_prefix$task->{_text}\n) if $task->{_text};
+  print $fh &StrToXML(qq($prefix$ident_prefix$task->{_text}\n))
+      if $task->{_text};
   foreach $time (@{$task->{_times}}) {
     $buf = $prefix.$ident_prefix.form_attr_line('time', $time);
     print $fh "$buf";
-    print $fh qq($time->{_text}) if $time->{_text};
+    print $fh &StrToXML(qq($time->{_text})) if $time->{_text};
     print $fh "</time>\n";
   }
   foreach (@{$task->{_tasks}}) {
@@ -494,6 +510,30 @@ sub cleanr_empty_spaces(\$) {
 sub clean_empty_spaces {
   my $str = shift;
   return cleanr_empty_spaces($str);
+}
+
+sub StrToXML {
+  my $str = shift;
+  my(@chars) = split(//, $str);
+  local $_;
+
+  $_ = "";
+  foreach my $char (@chars) {
+    if ($char eq '&') {
+      $_ .= "&amp;";
+    }
+    elsif ($char eq '<') {
+      $_ .= "&lt;";
+    }
+    elsif ((ord($char) < 32 || ord($char) > 127)
+	   && (ord($char) != 9 && ord($char) != 10 && ord($char) != 13)) {
+      $_ .= "&#" . ord($char) . ";";
+    } else {
+      $_ .= $char;
+    }
+  }
+
+  return $_;
 }
 
 ##########################################################################
